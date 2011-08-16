@@ -25,7 +25,9 @@ with open('include/GL3/gl3.h', 'r') as f:
             procs.append(m.group(1))
 
 def proc_t(proc):
-    return {'p': proc, 'p_t': 'PFN' + proc.upper() + 'PROC'}
+    return { 'p': proc,
+             'p_s': 'gl3w' + proc[2:],
+             'p_t': 'PFN' + proc.upper() + 'PROC' }
 
 # Generate gl3w.h
 with open('include/GL3/gl3w.h', 'wb') as f:
@@ -50,7 +52,10 @@ void (*gl3wGetProcAddress(const char *proc))();
 /* OpenGL functions */
 ''')
     for proc in procs:
-        f.write('extern %(p_t)s %(p)s;\n' % proc_t(proc))
+        f.write('extern %(p_t)s %(p_s)s;\n' % proc_t(proc))
+    f.write('\n')
+    for proc in procs:
+        f.write('#define %(p)s		%(p_s)s\n' % proc_t(proc))
     f.write(r'''
 #ifdef __cplusplus
 }
@@ -85,8 +90,41 @@ static gl3w_fptr get_proc(const char *proc)
 {
 	gl3w_fptr res;
 
-	if (!(res = (gl3w_fptr)wglGetProcAddress(proc)))
+	res = (gl3w_fptr)wglGetProcAddress(proc);
+	if (!res)
 		res = (gl3w_fptr)GetProcAddress(libgl, proc);
+	return res;
+}
+#elif defined(__APPLE__) || defined(__APPLE_CC__)
+#include <Carbon/Carbon.h>
+
+CFBundleRef bundle;
+CFURLRef bundleURL;
+
+static void open_libgl(void)
+{
+	bundleURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
+		CFSTR("/System/Library/Frameworks/OpenGL.framework"),
+		kCFURLPOSIXPathStyle, true);
+
+	bundle = CFBundleCreate(kCFAllocatorDefault, bundleURL);
+	assert(bundle != NULL);
+}
+
+static void close_libgl(void)
+{
+	CFRelease(bundle);
+	CFRelease(bundleURL);
+}
+
+static gl3w_fptr get_proc(const char *proc)
+{
+	void *res;
+
+	CFStringRef procname = CFStringCreateWithCString(kCFAllocatorDefault, proc,
+		kCFStringEncodingASCII);
+	res = CFBundleGetFunctionPointerForName(bundle, procname);
+	CFRelease(procname);
 	return res;
 }
 #else
@@ -109,7 +147,8 @@ static gl3w_fptr get_proc(const char *proc)
 {
 	gl3w_fptr res;
 
-	if (!(res = glXGetProcAddress((const GLubyte *) proc)))
+	res = (gl3w_fptr)glXGetProcAddress((const GLubyte *) proc);
+	if (!res)
 		res = (gl3w_fptr)dlsym(libgl, proc);
 	return res;
 }
@@ -124,7 +163,10 @@ static int parse_version(void)
 	const char *p;
 	int major, minor;
 
-	if (!glGetString || !(p = (const char *)glGetString(GL_VERSION)))
+	if (!glGetString)
+		return -1;
+	p = (const char *) glGetString(GL_VERSION);
+	if (!p)
 		return -1;
 	for (major = 0; *p >= '0' && *p <= '9'; p++)
 		major = 10 * major + *p - '0';
@@ -163,11 +205,11 @@ gl3w_fptr gl3wGetProcAddress(const char *proc)
 
 ''')
     for proc in procs:
-        f.write('%(p_t)s %(p)s;\n' % proc_t(proc))
+        f.write('%(p_t)s %(p_s)s;\n' % proc_t(proc))
     f.write(r'''
 static void load_procs(void)
 {
 ''')
     for proc in procs:
-        f.write('\t%(p)s = (%(p_t)s) get_proc("%(p)s");\n' % proc_t(proc))
+        f.write('\t%(p_s)s = (%(p_t)s) get_proc("%(p)s");\n' % proc_t(proc))
     f.write('}\n')
