@@ -8,7 +8,7 @@ Introduction
 gl3w_ is the easiest way to get your hands on the functionality offered by
 OpenGL 3/4 core profile specification.
 
-Its main part is a simple gl3w_gen.py_ Python 2.6 script that downloads the
+Its main part is a simple gl3w_gen.py_ Python 2.x script that downloads the
 Khronos_ supported gl3.h_ header and generates gl3w.h and gl3w.c from it. Those
 files can then be added and linked (statically or dynamically) into your
 project.
@@ -76,12 +76,13 @@ The gl3w_ API consist of just three functions:
 
     Returns the address of an OpenGL extension function. Generally, you won't
     need to use it since gl3w_ loads all the functions defined in the OpenGL
-    core profile. It's only exposed for completeness.
+    core profile on initialization. It allows you to load OpenGL extensions
+    outside of the core profile.
 
 License
 -------
 
-gl3w_ is in the puclic domain.
+gl3w_ is in the public domain.
 
 Credits
 -------
@@ -91,6 +92,9 @@ Slavomir Kaslev <slavomir.kaslev@gmail.com>
 
 Kelvin McDowell
     Mac OS X support
+
+Rommel160 [github.com/Rommel160]
+    Code contributions
 
 Copyright
 ---------
